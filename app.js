@@ -109,10 +109,60 @@ window.addEventListener(
             ============================================
             */
 
-            businessKey =
-                data.body.businessKey ||
-                data.body.business ||
-                data.body.BusinessKey;
+            /*
+============================================
+GET BUSINESS KEY FROM PARENT URL
+============================================
+*/
+
+try {
+
+    const parentUrl =
+        event.origin ||
+        document.referrer;
+
+    console.log(
+        "Parent URL:",
+        parentUrl
+    );
+
+    /*
+    Example:
+    https://subdomain.manager.io/businesses/xxxxxxx/sales-invoice-view
+    */
+
+    const match =
+        parentUrl.match(
+            /businesses\/([^\/]+)\//
+        );
+
+    if (match && match[1]) {
+
+        businessKey = match[1];
+
+        console.log(
+            "Business Key:",
+            businessKey
+        );
+
+    } else {
+
+        throw new Error(
+            "Business key not found"
+        );
+    }
+
+} catch(error) {
+
+    console.error(error);
+
+    showMessage(
+        "Unable to determine business key",
+        "error"
+    );
+
+    return;
+}
 
             console.log(
                 "Business Key:",
