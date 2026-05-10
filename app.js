@@ -88,6 +88,12 @@ LISTEN
 ========================================================
 */
 
+/*
+========================================================
+LISTEN
+========================================================
+*/
+
 window.addEventListener(
     "message",
     async function(event) {
@@ -102,6 +108,77 @@ window.addEventListener(
 
             status.innerHTML =
                 "Connected to Manager.io";
+
+            /*
+            ============================================
+            GET BUSINESS KEY FROM REFERRER
+            ============================================
+            */
+
+            try {
+
+                const referrer =
+                    document.referrer;
+
+                console.log(
+                    "Referrer:",
+                    referrer
+                );
+
+                /*
+                Example:
+                https://xxxxx.manager.io/businesses/abc123/sales-invoice-view
+                */
+
+                const match =
+                    referrer.match(
+                        /businesses\/([^\/]+)\//
+                    );
+
+                if (
+                    match &&
+                    match[1]
+                ) {
+
+                    businessKey =
+                        match[1];
+
+                    console.log(
+                        "Business Key:",
+                        businessKey
+                    );
+
+                } else {
+
+                    throw new Error(
+                        "Business key not found"
+                    );
+                }
+
+            } catch(error) {
+
+                console.error(error);
+
+                showMessage(
+                    "Unable to determine business key",
+                    "error"
+                );
+
+                return;
+            }
+
+            /*
+            ============================================
+            LOAD DATA
+            ============================================
+            */
+
+            await loadCustomers();
+
+            await loadItems();
+        }
+    }
+);
 
             /*
             ============================================
