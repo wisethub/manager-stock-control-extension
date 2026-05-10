@@ -1,0 +1,8 @@
+{
+  "id": "stock-control-extension",
+  "name": "Stock Control & Price Protection",
+  "version": "1.0.0",
+  "author": "Your Name",
+  "description": "Prevent negative inventory and lock default sales prices",
+  "main": "extension.js"
+}
