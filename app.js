@@ -1,7 +1,6 @@
 /*
 ========================================================
 MANAGER.IO STOCK CONTROL EXTENSION
-API4 VERSION
 ========================================================
 */
 
@@ -32,11 +31,11 @@ const status =
 
 /*
 ========================================================
-MESSAGE DISPLAY
+HELPER
 ========================================================
 */
 
-function showMessage(text, type = "success") {
+function showMessage(text, type="success") {
 
     message.innerHTML = text;
 
@@ -46,33 +45,23 @@ function showMessage(text, type = "success") {
 
 /*
 ========================================================
-API REQUEST HELPER
+SEND MESSAGE TO MANAGER
 ========================================================
 */
 
-function managerApi(endpoint) {
+function requestManagerData(endpoint, requestId) {
 
-    return fetch(endpoint, {
-        credentials: "include",
-        headers: {
-            "Accept": "application/json"
-        }
-    }).then(r => {
-
-        if (!r.ok) {
-            throw new Error(
-                `API Error ${r.status}`
-            );
-        }
-
-        return r.json();
-    });
+    window.parent.postMessage({
+        type: "api-request",
+        endpoint: endpoint,
+        requestId: requestId
+    }, "*");
 }
 
 
 /*
 ========================================================
-PAGE CONTEXT
+INITIALIZE
 ========================================================
 */
 
@@ -95,6 +84,12 @@ window.addEventListener(
 
         console.log(data);
 
+        /*
+        ================================================
+        PAGE CONNECTED
+        ================================================
+        */
+
         if (
             data.type === "page-response"
         ) {
@@ -102,116 +97,162 @@ window.addEventListener(
             status.innerHTML =
                 "Connected to Manager.io";
 
-            await loadCustomers();
+            requestManagerData(
+                "/api2/customers",
+                "customers"
+            );
 
-            await loadItems();
+            requestManagerData(
+                "/api2/inventory-items",
+                "items"
+            );
+        }
+
+
+        /*
+        ================================================
+        API RESPONSE
+        ================================================
+        */
+
+        if (
+            data.type === "api-response"
+        ) {
+
+            /*
+            ============================================
+            CUSTOMERS
+            ============================================
+            */
+
+            if (
+                data.requestId === "customers"
+            ) {
+
+                customerSelect.innerHTML =
+                    `<option value="">
+                        Select customer
+                    </option>`;
+
+                data.body.forEach(customer => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        customer.Key ||
+                        customer.key;
+
+                    option.textContent =
+                        customer.Name ||
+                        customer.name;
+
+                    customerSelect.appendChild(
+                        option
+                    );
+                });
+            }
+
+
+            /*
+            ============================================
+            ITEMS
+            ============================================
+            */
+
+            if (
+                data.requestId === "items"
+            ) {
+
+                itemSelect.innerHTML =
+                    `<option value="">
+                        Select item
+                    </option>`;
+
+                data.body.forEach(item => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        item.Key ||
+                        item.key;
+
+                    option.textContent =
+                        item.Name ||
+                        item.name;
+
+                    itemSelect.appendChild(
+                        option
+                    );
+                });
+            }
+
+
+            /*
+            ============================================
+            ITEM DETAILS
+            ============================================
+            */
+
+            if (
+                data.requestId === "item-details"
+            ) {
+
+                const item =
+                    data.body;
+
+                salesPrice.value =
+                    item.SalesPrice ||
+                    item.salesPrice ||
+                    0;
+            }
+
+
+            /*
+            ============================================
+            STOCK
+            ============================================
+            */
+
+            if (
+                data.requestId === "stock"
+            ) {
+
+                const stock =
+                    data.body;
+
+                const balance =
+                    parseFloat(
+                        stock.Quantity ||
+                        stock.quantity ||
+                        0
+                    );
+
+                if (balance <= 0) {
+
+                    stockDisplay.innerHTML =
+                        "OUT OF STOCK";
+
+                    stockDisplay.className =
+                        "error";
+
+                } else {
+
+                    stockDisplay.innerHTML =
+                        `Available Stock: ${balance}`;
+
+                    stockDisplay.className =
+                        "success";
+                }
+            }
         }
     }
 );
-
-
-/*
-========================================================
-LOAD CUSTOMERS
-========================================================
-*/
-
-async function loadCustomers() {
-
-    try {
-
-        /*
-        ================================================
-        TRY API2
-        ================================================
-        */
-
-        const customers =
-            await managerApi(
-                "/api2/customers"
-            );
-
-        customerSelect.innerHTML =
-            `<option value="">
-                Select customer
-            </option>`;
-
-        customers.forEach(customer => {
-
-            const option =
-                document.createElement("option");
-
-            option.value =
-                customer.Key || customer.key;
-
-            option.textContent =
-                customer.Name || customer.name;
-
-            customerSelect.appendChild(option);
-        });
-
-    } catch(error) {
-
-        console.error(error);
-
-        showMessage(
-            "Unable to load customers",
-            "error"
-        );
-    }
-}
-
-
-/*
-========================================================
-LOAD INVENTORY ITEMS
-========================================================
-*/
-
-async function loadItems() {
-
-    try {
-
-        /*
-        ================================================
-        TRY API2
-        ================================================
-        */
-
-        const items =
-            await managerApi(
-                "/api2/inventory-items"
-            );
-
-        itemSelect.innerHTML =
-            `<option value="">
-                Select item
-            </option>`;
-
-        items.forEach(item => {
-
-            const option =
-                document.createElement("option");
-
-            option.value =
-                item.Key || item.key;
-
-            option.textContent =
-                item.Name || item.name;
-
-            itemSelect.appendChild(option);
-        });
-
-    } catch(error) {
-
-        console.error(error);
-
-        showMessage(
-            "Unable to load inventory items",
-            "error"
-        );
-    }
-}
 
 
 /*
@@ -222,94 +263,29 @@ ITEM SELECT
 
 itemSelect.addEventListener(
     "change",
-    async function() {
+    function() {
 
         const itemKey =
             itemSelect.value;
 
         if (!itemKey) return;
 
-        try {
+        requestManagerData(
+            `/api2/inventory-item-form/${itemKey}`,
+            "item-details"
+        );
 
-            /*
-            ================================================
-            ITEM DETAILS
-            ================================================
-            */
-
-            const item =
-                await managerApi(
-                    `/api2/inventory-item-form/${itemKey}`
-                );
-
-            /*
-            ================================================
-            STOCK
-            ================================================
-            */
-
-            const stock =
-                await managerApi(
-                    `/api2/inventory-item-quantity-on-hand/${itemKey}`
-                );
-
-            const balance =
-                parseFloat(
-                    stock.Quantity ||
-                    stock.quantity ||
-                    0
-                );
-
-            /*
-            ================================================
-            DISPLAY STOCK
-            ================================================
-            */
-
-            if (balance <= 0) {
-
-                stockDisplay.innerHTML =
-                    "OUT OF STOCK";
-
-                stockDisplay.className =
-                    "error";
-
-            } else {
-
-                stockDisplay.innerHTML =
-                    `Available Stock: ${balance}`;
-
-                stockDisplay.className =
-                    "success";
-            }
-
-            /*
-            ================================================
-            SALES PRICE
-            ================================================
-            */
-
-            salesPrice.value =
-                item.SalesPrice ||
-                item.salesPrice ||
-                0;
-
-        } catch(error) {
-
-            console.error(error);
-
-            showMessage(
-                "Unable to load item details",
-                "error"
-            );
-        }
+        requestManagerData(
+            `/api2/inventory-item-quantity-on-hand/${itemKey}`,
+            "stock"
+        );
     }
 );
 
 
 /*
 ========================================================
-VALIDATE
+VALIDATION
 ========================================================
 */
 
@@ -317,17 +293,16 @@ validateButton.addEventListener(
     "click",
     function() {
 
-        const balanceText =
-            stockDisplay.innerText;
-
         const qty =
             parseFloat(
                 quantity.value || 0
             );
 
+        const stockText =
+            stockDisplay.innerText;
+
         if (
-            balanceText ===
-            "OUT OF STOCK"
+            stockText === "OUT OF STOCK"
         ) {
 
             showMessage(
@@ -340,7 +315,7 @@ validateButton.addEventListener(
 
         const available =
             parseFloat(
-                balanceText.replace(
+                stockText.replace(
                     "Available Stock: ",
                     ""
                 )
@@ -349,7 +324,7 @@ validateButton.addEventListener(
         if (qty > available) {
 
             showMessage(
-                `Quantity exceeds available stock (${available})`,
+                `Quantity exceeds stock (${available})`,
                 "error"
             );
 
@@ -357,7 +332,8 @@ validateButton.addEventListener(
         }
 
         showMessage(
-            "Invoice validation passed"
+            "Invoice validation passed",
+            "success"
         );
     }
 );
