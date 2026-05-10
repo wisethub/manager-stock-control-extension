@@ -1,54 +1,38 @@
 /*
 ========================================================
-STOCK CONTROL EXTENSION
-Manager.io API4 Extension
+MANAGER.IO STOCK CONTROL EXTENSION
+API4 VERSION
 ========================================================
 */
 
 const customerSelect =
-    document.getElementById(
-        "customerSelect"
-    );
+    document.getElementById("customerSelect");
 
 const itemSelect =
-    document.getElementById(
-        "itemSelect"
-    );
+    document.getElementById("itemSelect");
 
 const stockDisplay =
-    document.getElementById(
-        "stockDisplay"
-    );
+    document.getElementById("stockDisplay");
 
 const salesPrice =
-    document.getElementById(
-        "salesPrice"
-    );
+    document.getElementById("salesPrice");
 
 const quantity =
-    document.getElementById(
-        "quantity"
-    );
+    document.getElementById("quantity");
 
 const validateButton =
-    document.getElementById(
-        "validateButton"
-    );
+    document.getElementById("validateButton");
 
 const message =
-    document.getElementById(
-        "message"
-    );
+    document.getElementById("message");
 
 const status =
-    document.getElementById(
-        "status"
-    );
+    document.getElementById("status");
 
 
 /*
 ========================================================
-HELPER
+MESSAGE DISPLAY
 ========================================================
 */
 
@@ -62,21 +46,44 @@ function showMessage(text, type = "success") {
 
 /*
 ========================================================
-REQUEST PAGE CONTEXT
+API REQUEST HELPER
 ========================================================
 */
 
-window.parent.postMessage(
-    {
-        type: "page-request"
-    },
-    "*"
-);
+function managerApi(endpoint) {
+
+    return fetch(endpoint, {
+        credentials: "include",
+        headers: {
+            "Accept": "application/json"
+        }
+    }).then(r => {
+
+        if (!r.ok) {
+            throw new Error(
+                `API Error ${r.status}`
+            );
+        }
+
+        return r.json();
+    });
+}
 
 
 /*
 ========================================================
-LISTEN FOR MANAGER RESPONSE
+PAGE CONTEXT
+========================================================
+*/
+
+window.parent.postMessage({
+    type: "page-request"
+}, "*");
+
+
+/*
+========================================================
+LISTEN
 ========================================================
 */
 
@@ -113,13 +120,16 @@ async function loadCustomers() {
 
     try {
 
-        const response =
-            await fetch(
-                "/api4/customers"
-            );
+        /*
+        ================================================
+        TRY API2
+        ================================================
+        */
 
         const customers =
-            await response.json();
+            await managerApi(
+                "/api2/customers"
+            );
 
         customerSelect.innerHTML =
             `<option value="">
@@ -129,19 +139,15 @@ async function loadCustomers() {
         customers.forEach(customer => {
 
             const option =
-                document.createElement(
-                    "option"
-                );
+                document.createElement("option");
 
             option.value =
-                customer.key;
+                customer.Key || customer.key;
 
             option.textContent =
-                customer.name;
+                customer.Name || customer.name;
 
-            customerSelect.appendChild(
-                option
-            );
+            customerSelect.appendChild(option);
         });
 
     } catch(error) {
@@ -166,13 +172,16 @@ async function loadItems() {
 
     try {
 
-        const response =
-            await fetch(
-                "/api4/inventory-items"
-            );
+        /*
+        ================================================
+        TRY API2
+        ================================================
+        */
 
         const items =
-            await response.json();
+            await managerApi(
+                "/api2/inventory-items"
+            );
 
         itemSelect.innerHTML =
             `<option value="">
@@ -182,19 +191,15 @@ async function loadItems() {
         items.forEach(item => {
 
             const option =
-                document.createElement(
-                    "option"
-                );
+                document.createElement("option");
 
             option.value =
-                item.key;
+                item.Key || item.key;
 
             option.textContent =
-                item.name;
+                item.Name || item.name;
 
-            itemSelect.appendChild(
-                option
-            );
+            itemSelect.appendChild(option);
         });
 
     } catch(error) {
@@ -211,7 +216,7 @@ async function loadItems() {
 
 /*
 ========================================================
-ITEM CHANGE
+ITEM SELECT
 ========================================================
 */
 
@@ -227,50 +232,44 @@ itemSelect.addEventListener(
         try {
 
             /*
-            ============================================
+            ================================================
             ITEM DETAILS
-            ============================================
+            ================================================
             */
-
-            const itemResponse =
-                await fetch(
-                    `/api4/inventory-items/${itemKey}`
-                );
 
             const item =
-                await itemResponse.json();
-
-
-            /*
-            ============================================
-            STOCK BALANCE
-            ============================================
-            */
-
-            const stockResponse =
-                await fetch(
-                    `/api4/inventory-item-quantity-on-hand/${itemKey}`
+                await managerApi(
+                    `/api2/inventory-item-form/${itemKey}`
                 );
 
-            const stock =
-                await stockResponse.json();
+            /*
+            ================================================
+            STOCK
+            ================================================
+            */
 
+            const stock =
+                await managerApi(
+                    `/api2/inventory-item-quantity-on-hand/${itemKey}`
+                );
 
             const balance =
                 parseFloat(
-                    stock.quantity || 0
+                    stock.Quantity ||
+                    stock.quantity ||
+                    0
                 );
 
             /*
-            ============================================
+            ================================================
             DISPLAY STOCK
-            ============================================
+            ================================================
             */
 
             if (balance <= 0) {
 
                 stockDisplay.innerHTML =
-                    `OUT OF STOCK`;
+                    "OUT OF STOCK";
 
                 stockDisplay.className =
                     "error";
@@ -284,16 +283,16 @@ itemSelect.addEventListener(
                     "success";
             }
 
-
             /*
-            ============================================
+            ================================================
             SALES PRICE
-            ============================================
+            ================================================
             */
 
             salesPrice.value =
-                item.salesPrice || 0;
-
+                item.SalesPrice ||
+                item.salesPrice ||
+                0;
 
         } catch(error) {
 
@@ -327,7 +326,8 @@ validateButton.addEventListener(
             );
 
         if (
-            balanceText === "OUT OF STOCK"
+            balanceText ===
+            "OUT OF STOCK"
         ) {
 
             showMessage(
